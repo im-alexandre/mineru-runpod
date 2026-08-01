@@ -85,6 +85,10 @@
 
 	--sl-color-bg: var(--rm-night-950);
 	--sl-color-bg-nav: rgba(10, 2, 44, 0.68);
+	/* Header veil, deliberately thinner than --sl-color-bg-nav: backdrop-filter
+	   only shows through the transparent part, so at 0.68 the frosting was
+	   invisible. The blur still smears text behind it enough to stay legible. */
+	--rm-nav-veil: rgba(10, 2, 44, 0.45);
 	--sl-color-bg-sidebar: var(--rm-surface-sidebar);
 	--sl-color-bg-inline-code: rgba(184, 132, 255, 0.17);
 	--sl-color-bg-accent: var(--rm-violet-700);
@@ -127,6 +131,7 @@
 
 	--sl-color-bg: #ffffff;
 	--sl-color-bg-nav: rgba(255, 255, 255, 0.72);
+	--rm-nav-veil: rgba(255, 255, 255, 0.55);
 	--sl-color-bg-sidebar: var(--rm-surface-sidebar);
 	--sl-color-bg-inline-code: rgba(95, 22, 242, 0.08);
 
@@ -174,8 +179,8 @@ body {
    text read straight through the search field. --sl-color-bg-nav is already
    themed for both schemes above; blur on top of it gives the frosted look. */
 header.header {
-	background: var(--sl-color-bg-nav) !important;
-	background-color: var(--sl-color-bg-nav) !important;
+	background: var(--rm-nav-veil) !important;
+	background-color: var(--rm-nav-veil) !important;
 	background-image: none !important;
 	border: 0 !important;
 	backdrop-filter: blur(10px);
