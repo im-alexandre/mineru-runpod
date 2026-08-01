@@ -92,6 +92,28 @@ If a release is urgent and the Hub validator is the only thing blocking it, rena
 
 This loses all CI signal — only use it as a temporary unblock, not a default.
 
+## "You don't have access to download the artifacts"
+
+**Symptom**: creating an endpoint fails with an access or permission error
+about pulling the image, and nothing was ever built on your account.
+
+**Cause**: there is no public prebuilt image for this template, so there is
+nothing to pull by name. This repo ships as a *source* template — RunPod
+clones it and builds the image **into your own account's registry**. An
+endpoint created by typing an image reference by hand (**Resources →
+Serverless → New Endpoint**) has nothing to point at and fails exactly this
+way.
+
+**Fix**: deploy from the [Hub listing](https://console.runpod.io/hub/sergeyshmakov/mineru-runpod)
+instead, or via **The Hub → Serverless repos**, and let RunPod run the build.
+It takes ~5–10 minutes and the log is visible in the dashboard. See
+[Deploy](/mineru-runpod/getting-started/deploy/) for all three paths.
+
+You never build this image locally, so your workstation's architecture
+doesn't matter — the build runs on RunPod's x86 builders. If you do want to
+own the image, Option C on the Deploy page covers building and pushing to
+your own registry, which needs an x86 build host.
+
 ## VLM backend crashes on Blackwell GPUs (cc=12.0)
 
 **Symptom**: worker logs show successful model load followed by:

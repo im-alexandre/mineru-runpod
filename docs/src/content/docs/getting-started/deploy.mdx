@@ -13,6 +13,14 @@ New to RunPod? [Create your account first](https://runpod.io?ref=31jdfpnq), then
 
 This repo is published as a public Hub template. Open the listing above and click Deploy — or, from the RunPod dashboard, go to **The Hub → Serverless repos**, find `mineru-runpod`, and click Deploy. RunPod builds the image on your account, you pick a GPU pool, and you get an endpoint id. No fork, no clone, no local setup.
 
+The template is the *source*, not a prebuilt image: there is no public image
+to pull, and RunPod builds one into your own account's registry the first
+time you deploy (~5–10 min, watchable in the dashboard). That also means
+your local machine's architecture is irrelevant — nothing is built on it. If
+you create an endpoint by hand and type an image name instead, the pull
+fails with an access error; see
+[troubleshooting](/mineru-runpod/guides/troubleshooting/#you-dont-have-access-to-download-the-artifacts).
+
 This is the recommended path if your goal is parsing PDFs, not customising the worker.
 
 ## Option B — Fork and auto-build (for customization)
