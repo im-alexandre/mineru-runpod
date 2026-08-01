@@ -1,3 +1,5 @@
+## [1.8.4](https://github.com/sergeyshmakov/mineru-runpod/compare/v1.8.3...v1.8.4) (2026-08-01)
+
 ## [1.8.0](https://github.com/sergeyshmakov/mineru-runpod/compare/v1.7.1...v1.8.0) (2026-07-12)
 
 ## [1.7.1](https://github.com/sergeyshmakov/mineru-runpod/compare/v1.7.0...v1.7.1) (2026-07-12)
