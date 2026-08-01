@@ -169,13 +169,17 @@ body {
 /* ===================================================================
    Header and global chrome
    =================================================================== */
+/* The nav needs a translucent layer of its own: backdrop-filter blurs what
+   is behind it but does not hide it, so a fully transparent header lets page
+   text read straight through the search field. --sl-color-bg-nav is already
+   themed for both schemes above; blur on top of it gives the frosted look. */
 header.header {
-	background: transparent !important;
-	background-color: transparent !important;
+	background: var(--sl-color-bg-nav) !important;
+	background-color: var(--sl-color-bg-nav) !important;
 	background-image: none !important;
 	border: 0 !important;
-	backdrop-filter: blur(16px);
-	-webkit-backdrop-filter: blur(16px);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
 	box-shadow: none !important;
 }
 
@@ -473,9 +477,15 @@ starlight-card-grid,
 	vertical-align: top;
 }
 
+/* nowrap here made long log lines an unbreakable box, which pushed the table
+   past the content column and under the right sidebar. Allowing a break only
+   where one is actually needed keeps short tokens on a single line without
+   letting a wide cell blow out the table. */
 .sl-markdown-content table:not(:where(.not-content *)) code {
 	display: inline-block;
-	white-space: nowrap;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	max-width: 100%;
 }
 
 /* ===================================================================
