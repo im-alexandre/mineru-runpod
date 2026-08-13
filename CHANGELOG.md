@@ -1,8 +1,39 @@
 ## [1.9.0](https://github.com/sergeyshmakov/mineru-runpod/compare/v1.8.4...v1.9.0) (2026-08-13)
 
+### Features
+
+* **worker:** normalize the job input surface and add endpoint-level limits ([#19](https://github.com/sergeyshmakov/mineru-runpod/issues/19)) ([4bd9219](https://github.com/sergeyshmakov/mineru-runpod/commit/4bd92198f561249ad82059ae94636a032ba8bc62))
+
+### Documentation
+
+* add Cloudflare Web Analytics beacon to the docs site ([#18](https://github.com/sergeyshmakov/mineru-runpod/issues/18)) ([357cc36](https://github.com/sergeyshmakov/mineru-runpod/commit/357cc362a4e8101bf18b11a0557f03221cf267d1))
+* align SEO, API guidance, and OpenTelemetry documentation ([#17](https://github.com/sergeyshmakov/mineru-runpod/issues/17)) ([314385d](https://github.com/sergeyshmakov/mineru-runpod/commit/314385d192535abf06756bfcaff406f454ef0e1e))
+* explain that the Hub template builds an image rather than pulling one ([6032696](https://github.com/sergeyshmakov/mineru-runpod/commit/6032696b34ee56afcb359929d28beea3501d879b))
+* migrate site to mineru.shmakov.tools ([#16](https://github.com/sergeyshmakov/mineru-runpod/issues/16)) ([b22b1cf](https://github.com/sergeyshmakov/mineru-runpod/commit/b22b1cf733591a485776716c31fc4596e2f82252))
+* stop wide tables overlapping the sidebar and give the nav a backdrop ([5dabfad](https://github.com/sergeyshmakov/mineru-runpod/commit/5dabfad85c9f8f7b5234aaf1acd57fcfa4a793fe))
+* thin the header veil so the backdrop blur is actually visible ([dfab1e3](https://github.com/sergeyshmakov/mineru-runpod/commit/dfab1e35bd38997e06d417f7b023ee9acd0836d1))
+
+### Build / Deps
+
+* **deps-dev:** bump the npm-development group with 6 updates ([#15](https://github.com/sergeyshmakov/mineru-runpod/issues/15)) ([e01fd0b](https://github.com/sergeyshmakov/mineru-runpod/commit/e01fd0be4663b6e436f485462e52db53a3fa3451))
+* **deps:** bump the docs-deps group in /docs with 4 updates ([#14](https://github.com/sergeyshmakov/mineru-runpod/issues/14)) ([63880a9](https://github.com/sergeyshmakov/mineru-runpod/commit/63880a933a4616c45140f10987a70911de797092))
+
 ## [1.8.4](https://github.com/sergeyshmakov/mineru-runpod/compare/v1.8.3...v1.8.4) (2026-08-01)
 
+### Bug Fixes
+
+* **worker:** drain in-flight jobs on SIGTERM instead of failing them ([#12](https://github.com/sergeyshmakov/mineru-runpod/issues/12)) ([23d8d02](https://github.com/sergeyshmakov/mineru-runpod/commit/23d8d0218fab36257af9ab2c025ace004376e37e))
+
 ## [1.8.0](https://github.com/sergeyshmakov/mineru-runpod/compare/v1.7.1...v1.8.0) (2026-07-12)
+
+### Features
+
+* **worker:** upgrade MinerU to 3.4 and add effort control ([#10](https://github.com/sergeyshmakov/mineru-runpod/issues/10)) ([af44cc6](https://github.com/sergeyshmakov/mineru-runpod/commit/af44cc6bfc3d05b066a2c1b518fb7f12fdfd5a5c))
+
+### Build / Deps
+
+* **deps-dev:** bump the npm-development group with 4 updates ([#6](https://github.com/sergeyshmakov/mineru-runpod/issues/6)) ([d1b800c](https://github.com/sergeyshmakov/mineru-runpod/commit/d1b800cc80209732e246f08feb67cb9ea3e5cd7a))
+* **deps:** bump the docs-deps group in /docs with 4 updates ([#7](https://github.com/sergeyshmakov/mineru-runpod/issues/7)) ([79b581e](https://github.com/sergeyshmakov/mineru-runpod/commit/79b581e4ac98270e286e703e982dddf3bb9d097f))
 
 ## [1.7.1](https://github.com/sergeyshmakov/mineru-runpod/compare/v1.7.0...v1.7.1) (2026-07-12)
 
