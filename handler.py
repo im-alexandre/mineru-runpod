@@ -7,6 +7,8 @@ The pieces this orchestrates live in the worker/ package:
   worker.package  — tarball / inline / s3 response packaging
   worker.debug    — GPU info, model dir, /runpod-volume probe
   worker.logging  — JSON / text structured logging
+  worker.redact   — one shape for the text a failure reports
+  worker.net      — target checks for the URL job inputs (used by io/schema)
 
 The module surface (``handler.MAX_INLINE_FILE_MB``, ``handler._detect_format``,
 ``handler._validate_input``, ``handler._package_tarball``, etc.) is preserved
@@ -31,6 +33,7 @@ from worker import io as _io
 from worker import logging as _logging
 from worker import package as _package
 from worker import parse as _parse
+from worker import redact as _redact
 from worker import schema as _schema
 from worker import telemetry as _telemetry
 
@@ -435,6 +438,11 @@ async def handler(job: dict) -> dict:
             # Probe mode bypasses schema validation: a probe has no file source
             # and the operator may want to send arbitrary debug flags through.
             if raw_input.get("probe") is True:
+                if not _debug.probe_enabled():
+                    raise ValueError(
+                        "probe is disabled on this endpoint "
+                        "(MINERU_DISABLE_PROBE)"
+                    )
                 return await _handle_probe(started, gpu_info, phase_ms)
 
             cleaned = _schema.validate_input(raw_input)
@@ -448,18 +456,22 @@ async def handler(job: dict) -> dict:
                 "errors_total", type=type(exc).__name__, phase="handler",
             )
             _telemetry.counter_add("jobs_total", status="error")
+            # One shape for the failure text across all three sinks (response,
+            # stdout, optional OTLP export) — see worker/redact.py.
             _logging.error(
                 "job failed",
                 error_type=type(exc).__name__,
-                error_message=str(exc),
+                error_message=_redact.compact(str(exc)),
                 phase_ms=phase_ms,
             )
             return {
-                "error": f"{type(exc).__name__}: {exc}",
+                "error": _redact.compact(f"{type(exc).__name__}: {exc}"),
                 "ok": False,
                 "elapsed_seconds": round(time.monotonic() - started, 2),
                 "mineru_version": _parse.MINERU_VERSION,
-                "traceback": traceback.format_exc(limit=5),
+                "traceback": _redact.compact(
+                    traceback.format_exc(limit=5), limit=4000
+                ),
                 "debug": _build_debug(phase_ms, gpu_info),
             }
 

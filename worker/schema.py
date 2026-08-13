@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import os
+import re
 from typing import Any
 
 from runpod.serverless.utils.rp_validator import validate
+
+from worker import net as _net
 
 
 VALID_TRANSPORTS = {"tarball_b64", "inline", "s3"}
@@ -28,6 +32,32 @@ VALID_BACKENDS = {
 # meaningful for the hybrid-* backends — rejected on the others in
 # validate_input. `None` means "let MinerU decide" and is not forwarded.
 VALID_EFFORTS = {"medium", "high"}
+
+# `basename` becomes the stem of every artefact MinerU writes and of the
+# archive entries built from them, so an unbounded one only fails once
+# something tries to create the file. 128 characters is far above any real
+# document name.
+MAX_BASENAME_LEN = 128
+
+# The longest suffix the worker appends to `basename` when writing an artefact
+# — package_inline reads this one back, so it sets the longest filename a job
+# produces.
+LONGEST_ARTEFACT_SUFFIX = "_content_list_v2.json"
+
+# Filesystems bound a path component in bytes, not characters, and the charset
+# rule above accepts unicode alphanumerics: 80 CJK characters already pass the
+# character limit while producing a name over this once the suffix is added.
+# Checked here so an over-long name is reported against the field rather than
+# surfacing as ENAMETOOLONG partway through writing output.
+MAX_OUTPUT_NAME_BYTES = 255
+
+# `lang` is a MinerU script/language code (e.g. "en", "ch", "east_slavic").
+# All of them are short ASCII identifiers, so anything else is a caller
+# mistake worth reporting here rather than passing down for MinerU to
+# rediscover several imports later.
+# Matched with fullmatch(), not match(): `$` also matches just before a final
+# newline, so "en\n" would otherwise pass and travel on to MinerU as a code.
+LANG_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,32}")
 
 # Archive container for the archive transports (tarball_b64, s3). The default
 # preserves historical behavior (.tar.gz); "zip" exists for callers that need a
@@ -65,6 +95,21 @@ INPUT_SCHEMA: dict[str, dict[str, Any]] = {
 
 def _fail(msg: str) -> None:
     raise ValueError(f"input validation failed: {msg}")
+
+
+def _max_pages_per_job() -> int:
+    """Largest page range a single job may ask for; 0 means no ceiling.
+
+    Read per job (like the refresh thresholds in handler.py) so an operator
+    can tune it without a redeploy. Off by default: the endpoint's execution
+    timeout is the backstop that has always applied, and a ceiling here is
+    for operators who would rather a too-large request be turned away up
+    front than spend GPU minutes on it.
+    """
+    try:
+        return max(0, int(os.environ.get("MINERU_MAX_PAGES_PER_JOB", "0")))
+    except ValueError:
+        return 0
 
 
 def _normalize_formats(raw: Any) -> list[str]:
@@ -111,6 +156,28 @@ def validate_input(job_input: dict) -> dict:
     basename = cleaned.get("basename") or "doc"
     if not basename or not all(c.isalnum() or c in "-_" for c in basename):
         _fail(f"basename must be alphanumeric (with - or _); got {basename!r}")
+    if len(basename) > MAX_BASENAME_LEN:
+        _fail(
+            f"basename must be at most {MAX_BASENAME_LEN} characters; "
+            f"got {len(basename)}"
+        )
+    longest_name = len(f"{basename}{LONGEST_ARTEFACT_SUFFIX}".encode())
+    if longest_name > MAX_OUTPUT_NAME_BYTES:
+        _fail(
+            f"basename is too long for the filenames it produces: with "
+            f"{LONGEST_ARTEFACT_SUFFIX!r} appended it is {longest_name} bytes, "
+            f"and the limit is {MAX_OUTPUT_NAME_BYTES}. Note the limit counts "
+            f"bytes, so non-ASCII characters cost more than one each"
+        )
+    cleaned["basename"] = basename
+
+    lang = cleaned.get("lang") or "en"
+    if not LANG_PATTERN.fullmatch(lang):
+        _fail(
+            f"lang must be a short script/language code (letters, digits, "
+            f"- or _); got {lang!r}"
+        )
+    cleaned["lang"] = lang
 
     # Write `transport` and `backend` back so downstream code can read them
     # with `cleaned[...]` (rather than `.get(...) or default`) regardless of
@@ -155,6 +222,30 @@ def validate_input(job_input: dict) -> dict:
     if start_page < 0:
         _fail(f"start_page must be >= 0; got {start_page!r}")
 
+    # end_page is 0-based and inclusive; any negative value is the "to the end
+    # of the document" sentinel (-1 is the documented spelling). A bounded
+    # range that ends before it starts is a caller mistake — MinerU would
+    # return an empty parse and the caller would have nothing to go on.
+    end_page = cleaned.get("end_page")
+    if end_page is not None and end_page >= 0:
+        if end_page < start_page:
+            _fail(
+                f"end_page must be >= start_page when set; "
+                f"got start_page={start_page}, end_page={end_page}"
+            )
+        # Only an explicit range has a page count at this point — an
+        # open-ended one isn't known until MinerU opens the document, so the
+        # ceiling can't speak to it. Operators who set it are expected to pair
+        # it with callers that request ranges (see the scaling guide).
+        ceiling = _max_pages_per_job()
+        requested = end_page - start_page + 1
+        if ceiling and requested > ceiling:
+            _fail(
+                f"requested page range is {requested} pages; this endpoint "
+                f"allows at most {ceiling} per job "
+                f"(MINERU_MAX_PAGES_PER_JOB)"
+            )
+
     # XOR over the three transports. The handler also relies on this — only
     # one of file_url/file_b64/volume_path may be set per job.
     sources = [k for k in ("file_url", "file_b64", "volume_path") if cleaned.get(k)]
@@ -169,5 +260,21 @@ def validate_input(job_input: dict) -> dict:
             f"backend={backend!r} requires `server_url` pointing at an "
             f"external vLLM OpenAI-compatible server"
         )
+
+    # Shape-check server_url at the boundary so a malformed value reports the
+    # field name here instead of failing inside MinerU's HTTP client. Only the
+    # shape: which host an operator runs their own model server on is their
+    # call, including one that isn't reachable from the public internet.
+    if server_url := cleaned.get("server_url"):
+        try:
+            _net.require_http_url(server_url, field="server_url")
+        except ValueError as e:
+            _fail(str(e))
+
+    if file_url := cleaned.get("file_url"):
+        try:
+            _net.require_http_url(file_url, field="file_url")
+        except ValueError as e:
+            _fail(str(e))
 
     return cleaned

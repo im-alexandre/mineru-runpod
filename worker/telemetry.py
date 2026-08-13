@@ -432,12 +432,30 @@ def _observe_gpu_util(options: Any) -> Iterator[Any]:  # noqa: ARG001
 
 @contextlib.contextmanager
 def span(name: str, **attrs: Any) -> Iterator[Any]:
-    """Open an OTel span, or a no-op context if telemetry is disabled."""
+    """Open an OTel span, or a no-op context if telemetry is disabled.
+
+    The SDK's own exception recording is switched off and routed through
+    :func:`record_exception` instead, so a failure that passes through
+    several nested spans is described the same way on each of them —
+    and the same way as the job response and the stdout log line. The
+    two flags move together: turning off only the status one would
+    leave a failed span reporting UNSET.
+    """
     if not _enabled or _tracer is None:
         yield None
         return
-    with _tracer.start_as_current_span(name, attributes=attrs) as sp:
-        yield sp
+    with _tracer.start_as_current_span(
+        name,
+        attributes=attrs,
+        record_exception=False,
+        set_status_on_exception=False,
+    ) as sp:
+        try:
+            yield sp
+        except BaseException as exc:  # noqa: BLE001 — re-raised immediately
+            # ``sp`` is still the current span here, so this lands on it.
+            record_exception(exc)
+            raise
 
 
 def set_span_attrs(**attrs: Any) -> None:
@@ -455,17 +473,47 @@ def set_span_attrs(**attrs: Any) -> None:
 def record_exception(exc: BaseException) -> None:
     """Attach an exception to the current span AND mark its status ERROR.
 
-    OTel semantic conventions require both: record_exception captures
-    the stack trace as a span event, set_status flips the span's
-    top-level status so trace dashboards filter it as a failure.
+    OTel semantic conventions require both: an ``exception`` span event
+    carrying the type / message / stack trace, and a span status of
+    ERROR so trace dashboards filter it as a failure.
+
+    The event is built here rather than via ``Span.record_exception``
+    so the text goes through :func:`worker.redact.compact` first — the
+    exported record then reads the same as the job response and the
+    stdout log line for the same failure, instead of being a longer
+    variant of it.
     """
     if not _enabled or _trace_api is None:
         return
     try:
+        import traceback  # noqa: PLC0415
+
+        from worker import redact as _redact  # noqa: PLC0415
+
+        message = _redact.compact(str(exc))
+        stack = _redact.compact(
+            "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            ),
+            limit=4000,
+        )
+        # Qualified type name, matching what the SDK's own recorder emits —
+        # a saved query or a dashboard grouping on `exception.type` keeps
+        # working, and short names don't collide across libraries.
+        mod = type(exc).__module__
+        qual = type(exc).__qualname__
+        exc_type = qual if not mod or mod == "builtins" else f"{mod}.{qual}"
         sp = _trace_api.get_current_span()
-        sp.record_exception(exc)
+        sp.add_event(
+            "exception",
+            {
+                "exception.type": exc_type,
+                "exception.message": message,
+                "exception.stacktrace": stack,
+            },
+        )
         if _status_cls is not None and _status_code is not None:
-            sp.set_status(_status_cls(_status_code.ERROR, str(exc)))
+            sp.set_status(_status_cls(_status_code.ERROR, message))
     except Exception:  # noqa: BLE001
         pass
 
